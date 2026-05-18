@@ -8,7 +8,7 @@ ACTIVATOR_VERSION  ?= 1.0
 ARCH               ?= arm64
 
 # Kernel we want to activate (single source of truth)
-KERNEL_RELEASE     ?= 6.12.58-fusb302-rpi-v8
+KERNEL_RELEASE     ?= 6.18.29-fusb302-rpi-v8
 KERNEL_PKG         ?= linux-image-$(KERNEL_RELEASE)
 
 # Output dir for the built .deb (inside this package dir)
@@ -35,7 +35,7 @@ SRC_INSTALL_FILE   := $(SRC_DEBIAN_DIR)/install.in
 
 DOCKER        ?= docker
 PLATFORM      ?= linux/arm64
-DOCKER_MAKE   ?= ../../docker/Makefile
+DOCKER_MAKE   ?= docker/Makefile
 DOCKER_IMAGE  ?= satellite1-deb-builder   # must match DEB_IMAGE_NAME in prj/Docker/Makefile
 
 # ---- Phony targets --------------------------------------------------------
@@ -71,7 +71,7 @@ deb: image $(DEB_FILE)
 
 # Build the shared deb-builder image (delegated to prj/Docker/Makefile)
 image:
-	$(MAKE) -C ../../docker deb-image
+	$(MAKE) -C docker deb-image
 
 # ---- Local packaging logic (no Docker here) ------------------------------
 
