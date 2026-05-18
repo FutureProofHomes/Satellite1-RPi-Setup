@@ -1,116 +1,135 @@
-PACKAGE_NAME  ?= satellite1-rpi-sdk
-SDK_VERSION   ?= 1.0
-ARCH          ?= arm64
+# sys-packages/satellite1-rpi-setup/Makefile
+
+
+# ---- High-level config ----------------------------------------------------
+
+PACKAGE_NAME       ?= satellite1-rpi-setup
+ACTIVATOR_VERSION  ?= 1.0
+ARCH               ?= arm64
+
+# Kernel we want to activate (single source of truth)
+KERNEL_RELEASE     ?= 6.12.58-fusb302-rpi-v8
+KERNEL_PKG         ?= linux-image-$(KERNEL_RELEASE)
+
+# Output dir for the built .deb (inside this package dir)
+OUT_DIR            ?= ${PWD}/out
+DEB_FILE           := $(PACKAGE_NAME)_$(ACTIVATOR_VERSION)_$(ARCH).deb
+
+# Build staging directory: where we construct the fake filesystem tree
+BUILD_DIR          := ${PWD}/build
+DEBIAN_DIR         := ${BUILD_DIR}/debian
+# Where we store the target kernel version so postinst can read it
+TARGET_KERNEL_FILE := ${BUILD_DIR}/target-kernel
+TARGET_KERNEL_DST  := /usr/share/$(PACKAGE_NAME)/target-kernel
+
+
+# Source locations (things you edit by hand)
+THIS_MAKEFILE      := $(abspath $(lastword $(MAKEFILE_LIST)))
+MAKE_DIR           := $(dir $(THIS_MAKEFILE))
+SRC_DEBIAN_DIR     := $(MAKE_DIR)/debian
+SRC_CONTROL_IN     := $(SRC_DEBIAN_DIR)/control.in
+SRC_POSTINST       := $(SRC_DEBIAN_DIR)/postinst.in
+SRC_INSTALL_FILE   := $(SRC_DEBIAN_DIR)/install.in
+
+# ---- Docker-related config -----------------------------------------------
 
 DOCKER        ?= docker
 PLATFORM      ?= linux/arm64
-DOCKER_MAKE   ?= docker/Makefile
-DOCKER_IMAGE  ?= satellite1-deb-builder
+DOCKER_MAKE   ?= ../../docker/Makefile
+DOCKER_IMAGE  ?= satellite1-deb-builder   # must match DEB_IMAGE_NAME in prj/Docker/Makefile
 
-OUT_DIR       ?= ${PWD}/build-assets
-DEB_TARGET    := ${OUT_DIR}/$(PACKAGE_NAME)_$(SDK_VERSION)_$(ARCH).deb
+# ---- Phony targets --------------------------------------------------------
 
-BUILD_DIR     ?= ${PWD}/build/sdk
-DEBIAN_DIR    := ${BUILD_DIR}/debian
+.PHONY: all deb deb-local image clean distclean print-config help
 
-LOCAL_VENV    ?= ${PWD}/.venv
+all: deb
 
-# --- Metadata ---
-PYPROJ_VERSION := $(shell python -m setuptools_scm)
-PYPROJ_RELEASE := $(shell python -m setuptools_scm --strip-dev)
+help:
+	@echo "Targets:"
+	@echo "  make deb           Build activator .deb package inside Docker"
+	@echo "  make deb-local     Build activator .deb package on the host"
+	@echo "  make image         Build the shared deb-builder Docker image"
+	@echo "  make clean         Remove build/ and out/ directories"
+	@echo "  make distclean     Alias for clean"
+	@echo "  make print-config  Show current kernel/package configuration"
 
-GIT_NAME := $(shell git config user.name)
-GIT_EMAIL := $(shell git config user.email)
+print-config:
+	@echo "PACKAGE_NAME      = $(PACKAGE_NAME)"
+	@echo "ACTIVATOR_VERSION = $(ACTIVATOR_VERSION)"
+	@echo "ARCH              = $(ARCH)"
+	@echo "KERNEL_RELEASE    = $(KERNEL_RELEASE)"
+	@echo "KERNEL_PKG        = $(KERNEL_PKG)"
+	@echo "OUT_DIR           = $(OUT_DIR)"
+	@echo "BUILD_DIR         = $(BUILD_DIR)"
+	@echo "PKG_ROOT          = $(PKG_ROOT)"
+	@echo "DOCKER_IMAGE      = $(DOCKER_IMAGE)"
 
-# --- check for uncomitted changes ---
-.PHONY: verify-git-is-clean
-verify-git-is-clean:
-ifndef ALLOW_DIRTY
-	@echo "Checking for uncomitted changes..."
-	@if ! git diff --quiet --ignore-submodules --; then \
-	  echo "ERROR: Working tree is dirty. Commit or stash changes first."; \
-	  echo "       (override with ALLOW_DIRTY=1)"; \
-	  exit 1; \
-	fi
-else
-    @echo "Skipping clean-tree check (ALLOW_DIRTY=$(ALLOW_DIRTY))"
-endif
+# ---- Top-level Docker-aware targets --------------------------------------
 
-.PHONY: print-meta
-print-meta:
-	@echo "PYPROJ_VERSION=$(PYPROJ_VERSION)" 
-	@echo "GIT_NAME=$(GIT_NAME)"
-	@echo "GIT_EMAIL=$(GIT_EMAIL)"
+# Build via Docker: ensures image exists, then runs deb-local inside container
+deb: image $(DEB_FILE) 
 
-.PHONY: all shell deb docker-image clean
+# Build the shared deb-builder image (delegated to prj/Docker/Makefile)
+image:
+	$(MAKE) -C ../../docker deb-image
 
-all: $(DEB_TARGET) build
+# ---- Local packaging logic (no Docker here) ------------------------------
 
-deb: $(DEB_TARGET)
+# This does the actual dpkg-deb work using the local toolchain
+deb-local: $(DEB_FILE)
 
-docker-image:
-	$(MAKE) -C ./docker deb-image
-
-build: verify-git-is-clean | $(OUT_DIR)
-	$(DOCKER) run --rm -it \
-		-v "${PWD}":/work \
-		-v "${OUT_DIR}":/out \
-		$(DOCKER_IMAGE) \
-		/usr/bin/python3 -m build --outdir /out
-
-$(OUT_DIR):
-	@echo "Creating $(OUT_DIR)"
+# Final .deb: build the staged tree, then run dpkg-deb
+$(DEB_FILE): $(DEBIAN_DIR)/control $(DEBIAN_DIR)/postinst $(TARGET_KERNEL_FILE) $(DEBIAN_DIR)/$(PACKAGE_NAME).install
 	mkdir -p "$(OUT_DIR)"
-	echo "*" > "$(OUT_DIR)/.gitignore"
-
-# build the wheel file and wrap it into a .deb package
-$(DEB_TARGET): docker-image verify-git-is-clean $(DEBIAN_DIR) | $(OUT_DIR)
-	mkdir -p "$(OUT_DIR)"
+	echo "*" > "$(OUT_DIR)"/.gitignore
 	$(DOCKER) run --rm --platform=$(PLATFORM) \
 	  -v "$(BUILD_DIR)":/work/src \
 	  -v "$(OUT_DIR)":/out \
-	  -v "${PWD}":/project \
 	  -w /work/src \
 	  $(DOCKER_IMAGE) \
-	  bash -lc ' \
-	  	dpkg-buildpackage -b -us -uc && \
-		cp ../*.deb debian/.wheelhouse/satellite1*.whl /out'
+	  bash -lc 'dpkg-buildpackage -b -us -uc && cp ../*.deb /out'
 	@echo
-	@echo "Built package: $(DEB_TARGET)"
+	@echo "Built activator package: $(DEB_FILE)"
 
+# Generate DEBIAN/control from template DEBIAN/control.in
+$(DEBIAN_DIR)/control: $(SRC_CONTROL_IN) | $(DEBIAN_DIR)
+	sed \
+	  -e 's/@PACKAGE_NAME@/$(PACKAGE_NAME)/g' \
+	  -e 's/@VERSION@/$(ACTIVATOR_VERSION)/g' \
+	  -e 's/@ARCH@/$(ARCH)/g' \
+	  -e 's/@KERNEL_PKG@/$(KERNEL_PKG)/g' \
+	  "$<" > "$@"
+
+# Copy postinst into the build tree and make it executable
+$(DEBIAN_DIR)/postinst: $(SRC_POSTINST) | $(DEBIAN_DIR)
+	sed \
+	  -e 's/@KERNEL_RELEASE@/$(KERNEL_RELEASE)/g' \
+	  "$<" > "$@"
+	chmod 0755 "$@"
+
+# Write the target kernel version into /usr/share/<pkgname>/target-kernel
+$(TARGET_KERNEL_FILE):
+	mkdir -p "$(dir $(TARGET_KERNEL_FILE))"
+	echo "$(KERNEL_RELEASE)" > "$(TARGET_KERNEL_FILE)"
+	
+# Copy postinst into the build tree and make it executable
+$(DEBIAN_DIR)/$(PACKAGE_NAME).install: $(SRC_INSTALL_FILE) $(TARGET_KERNEL_FILE) | $(DEBIAN_DIR)
+	cp "$<" "$@"	
+	echo "\ntarget-kernel ${TARGET_KERNEL_DST}" >> "$@"
+	echo "debian/.dtbo-build/*.dtbo  /usr/share/$(PACKAGE_NAME)/overlays" >> "$@"
+
+# Ensure DEBIAN dir exists in PKG_ROOT
 $(DEBIAN_DIR):
-	@echo "Creating $(BUILD_DIR)"
 	mkdir -p "$(BUILD_DIR)"
-	echo "*" > "$(BUILD_DIR)/.gitignore"
-	cp -r "debian" "$(BUILD_DIR)"
+	echo "*" > "$(BUILD_DIR)"/.gitignore
+	cp -r "$(SRC_DEBIAN_DIR)" "$(BUILD_DIR)"
+	cp -r "dt-overlays" "$(BUILD_DIR)"
 	cp -r "etc" "$(BUILD_DIR)"
 
-
-
-$(LOCAL_VENV):
-	python3 -m venv $(LOCAL_VENV)
-	$(LOCAL_VENV)/bin/pip install --upgrade pip
-	$(LOCAL_VENV)/bin/pip install -e .
-
-
-.PHONY: kernel-pkg
-kernel-pkg: $(OUR_DIR)
-	$(MAKE) -C ./sys-packages/rpi-kernel-fusb302 deb OUT_DIR="$(OUT_DIR)"
-
-.PHONY: rpi-setup-deb
-rpi-setup-deb: $(OUT_DIR)
-	$(MAKE) -C ./sys-packages/satellite1-rpi-setup deb OUT_DIR="$(OUT_DIR)"
+# ---- Cleaning -------------------------------------------------------------
 
 clean:
-	rm -rf "$(BUILD_DIR)" "$(DEB_TARGET)"
+	rm -rf "$(BUILD_DIR)" "$(OUT_DIR)"
 
-shell: docker-image
-	$(DOCKER) run --rm -it \
-		-v "${PWD}":/work \
-		-e "EDITOR=/usr/bin/vim" \
-		-e "DEBEMAIL=$(GIT_EMAIL)" \
-		-e "DEBFULLNAME=$(GIT_NAME)" \
-		-e "PRJ_VER=$(PYPROJ_RELEASE)" \
-		$(DOCKER_IMAGE) \
-		/bin/bash
-
+distclean: clean
+	@echo "Nothing extra to distclean."

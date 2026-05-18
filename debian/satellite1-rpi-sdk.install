@@ -1,2 +1,0 @@
-debian/.wheelhouse/*.whl    usr/share/satellite1/wheels/
-etc/satellite1.conf etc/
