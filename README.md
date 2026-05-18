@@ -2,6 +2,10 @@
 
 Debian package that configures Raspberry Pi OS for the Satellite1 HAT. Installs device tree overlays, ALSA configuration, and boot-time initialization.
 
+> **⚠️ Early-stage development:**
+> This is early-stage experimental software. No official support is provided yet. 
+> For issues and feature requests, open an issue on the GitHub repository: https://github.com/futureproofhomes/Satellite1-RPi/issues
+
 ## Overview
 
 This package configures the Raspberry Pi to work with the Satellite1 HAT by:

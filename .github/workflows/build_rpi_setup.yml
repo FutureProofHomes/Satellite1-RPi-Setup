@@ -48,7 +48,7 @@ jobs:
           install: true
 
       - name: Build satellite1-rpi-setup .deb package
-        working-directory: satellite1-rpi-setup
+        working-directory: ./
         run: |
           make deb
 
@@ -56,7 +56,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: satellite1-rpi-setup-deb
-          path: satellite1-rpi-setup/out/*.deb
+          path: out/*.deb
           if-no-files-found: error
 
       # Create Release for Tags
@@ -69,7 +69,7 @@ jobs:
           prerelease: false
           draft: false
           files: |
-            satellite1-rpi-setup/out/*.deb
+            out/*.deb
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -83,7 +83,7 @@ jobs:
           prerelease: true
           draft: false
           files: |
-            satellite1-rpi-setup/out/*.deb
+            out/*.deb
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
