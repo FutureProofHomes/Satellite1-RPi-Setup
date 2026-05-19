@@ -1,0 +1,111 @@
+name: "Build: Setup"
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    # We need to run on an ARM64 runner or use emulation. Since we are building for arm64,
+    # we can use qemu-user-static via docker/setup-buildx-action.
+    # However, the default ubuntu-latest runner is x86_64. We'll use buildx to emulate arm64.
+    # Alternatively, we can use a self-hosted ARM64 runner, but for simplicity we use emulation.
+    # Note: Emulation is slower but acceptable for occasional builds.
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: Restore package cache
+        uses: actions/cache@v4
+        with:
+          # Unpacking directly into /var/cache would result in permission errors
+          # so we need to work around this a bit.
+          path: apt-cache/
+          key: ${{ runner.os }}-${{ github.job }}-${{ inputs.image-name }}
+          restore-keys: |
+            ${{ runner.os }}-${{ github.job }}
+            ${{ runner.os }}
+
+      - name: Setup APT proxy on runner
+        run: |
+          mkdir -p apt-cache
+          sudo apt-get install -y apt-cacher-ng --no-install-suggests --no-install-recommends
+          sudo bash -c 'echo "Port: 9999" >> /etc/apt-cacher-ng/acng.conf'
+          sudo mv -f apt-cache/* /var/cache/apt-cacher-ng/ || true
+          sudo chown -R apt-cacher-ng:apt-cacher-ng /var/cache/apt-cacher-ng
+          sudo service apt-cacher-ng restart
+
+      # Only needed for 32bit build on x86_64 runner
+      - name: Set up QEMU
+        if: matrix.name == '32bit'
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          install: true
+
+      - name: Build satellite1-rpi-setup .deb package
+        working-directory: ./
+        run: |
+          make deb
+
+      - name: Upload .deb package as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: satellite1-rpi-setup-deb
+          path: out/*.deb
+          if-no-files-found: error
+
+      # Create Release for Tags
+      - name: Create Release for Tags
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          prerelease: false
+          draft: false
+          files: |
+            out/*.deb
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Create Release for Branches
+      - name: Create Release for Branches
+        if: '!startsWith(github.ref, ''refs/tags/'')'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: false
+          prerelease: true
+          draft: false
+          files: |
+            out/*.deb
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Save APT cache for future builds
+      - name: Move packages to temp location for caching
+        run: |
+          mkdir -p apt-cache
+          if [ -d "/var/cache/apt-cacher-ng" ]; then
+            if [ "$(ls -A /var/cache/apt-cacher-ng)" ]; then
+              sudo rm -rf apt-cache/*
+              sudo mv -f /var/cache/apt-cacher-ng/* apt-cache/
+              echo "APT-Cacher-NG cache was successfully saved."
+            else
+              echo "::warning::The directory /var/cache/apt-cacher-ng/ exists but is empty. No cache available to save."
+            fi
+          else
+            echo "::warning::The directory /var/cache/apt-cacher-ng/ does not exist. APT-Cacher-NG might not be correctly installed or configured."
+          fi
+          
+          # Output of logfile for debugging
+          if [ -f "/var/log/apt-cacher-ng/apt-cacher.log" ]; then
+            echo "Contents of the APT-Cacher-NG logfile:"
+            cat /var/log/apt-cacher-ng/apt-cacher.log
+          else
+            echo "::warning::The logfile /var/log/apt-cacher-ng/apt-cacher.log does not exist."
+          fi
