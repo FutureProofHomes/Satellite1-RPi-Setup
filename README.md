@@ -23,11 +23,11 @@ This package configures the Raspberry Pi to work with the Satellite1 HAT by:
 ## Prerequisites
 
 - Raspberry Pi OS (Trixie) on a Raspberry Pi Zero W2
-- Custom kernel with FUSB302 support (`linux-image-6.18.29-fusb302-rpi-v8` or compatible)
+- Custom kernel with FUSB302 support (`linux-image-6.18.32-fusb302-rpi-v8` or compatible)
 
 ## Installation
 
-The package declares a dependency on `linux-image-6.18.29-fusb302-rpi-v8`. Ensure this kernel is installed before or during package installation.
+The package declares a dependency on `linux-image-6.18.32-fusb302-rpi-v8`. Ensure this kernel is installed before or during package installation.
 
 Install the setup package which configures overlays, ALSA, and boot services:
 
@@ -51,7 +51,7 @@ sudo reboot
 
 ### Automatic kernel dependency
 
-The package declares a dependency on `linux-image-6.18.29-fusb302-rpi-v8`. Ensure this kernel is installed before or during package installation.
+The package declares a dependency on `linux-image-6.18.32-fusb302-rpi-v8`. Ensure this kernel is installed before or during package installation.
 
 ## Build Process
 
@@ -109,13 +109,13 @@ Override these on the command line:
 | `PACKAGE_NAME`      | `satellite1-rpi-setup`   | Package name          |
 | `ACTIVATOR_VERSION` | `1.0`                    | Package version       |
 | `ARCH`              | `arm64`                  | Target architecture   |
-| `KERNEL_RELEASE`    | `6.18.29-fusb302-rpi-v8` | Kernel version string |
+| `KERNEL_RELEASE`    | `6.18.32-fusb302-rpi-v8` | Kernel version string |
 | `OUT_DIR`           | `$(PWD)/out`             | Output directory      |
 
 Example:
 
 ```bash
-make deb KERNEL_RELEASE=6.18.29-fusb302-rpi-v8 ACTIVATOR_VERSION=1.0
+make deb KERNEL_RELEASE=6.18.32-fusb302-rpi-v8 ACTIVATOR_VERSION=1.0
 ```
 
 ### Local build (without Docker)
@@ -156,7 +156,7 @@ After install and reboot:
 ```bash
 # Check kernel version
 uname -r
-# Should show: 6.18.29-fusb302-rpi-v8
+# Should show: 6.18.32-fusb302-rpi-v8
 
 # Verify overlays are present
 ls /boot/firmware/overlays/ | grep -E 'satellite1|fusb302'
@@ -181,7 +181,7 @@ Note: The package does **not** remove modifications made to `config.txt` to pres
 
 Depends on:
 
-- `linux-image-6.18.29-fusb302-rpi-v8` (custom kernel)
+- `linux-image-6.18.32-fusb302-rpi-v8` (custom kernel)
 - `flashrom` (for firmware flashing utilities)
 - `libasound2-plugins` (ALSA plugin support)
 - `python3-venv`, `python3-pip` (for SDK installation)
