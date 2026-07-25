@@ -8,7 +8,7 @@ ACTIVATOR_VERSION  ?= 1.0
 ARCH               ?= arm64
 
 # Kernel we want to activate (single source of truth)
-KERNEL_RELEASE     ?= 6.18.32-fusb302-rpi-v8
+KERNEL_RELEASE     ?= 6.18.34-fusb302-rpi-v8
 KERNEL_PKG         ?= linux-image-$(KERNEL_RELEASE)
 
 # Output dir for the built .deb (inside this package dir)
