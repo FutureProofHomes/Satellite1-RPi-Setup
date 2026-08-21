@@ -4,7 +4,7 @@
 # ---- High-level config ----------------------------------------------------
 
 PACKAGE_NAME       ?= satellite1-rpi-setup
-ACTIVATOR_VERSION  ?= 1.1
+ACTIVATOR_VERSION  ?= 1.2-1
 ARCH               ?= arm64
 
 # Kernel we want to activate (single source of truth)

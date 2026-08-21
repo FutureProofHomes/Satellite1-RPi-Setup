@@ -23,20 +23,16 @@
 		    interrupt-parent = <&gpio>;
 		    interrupts = <17 2>;        /* GPIO 17, level-low (2) – adjust */
 
-		    /* Sink capabilities: fallback 5 V @ 3 A prefer 9 V @ 2 A, */
-		    sink-pdos = <0x0001912C 0x0002D0C8>;
-		    op-sink-microwatt = <2000000>;  /* 2 W operating power (5 V * 0.4 A) */
-		    
-                    connector {
+		    connector {
 		      compatible = "usb-c-connector";
 		      label = "USB-C";
 		      power-role = "sink";
 		      data-role = "dual";
 		      try-power-role = "sink";
 
-		      /* Sink capabilities: fallback 5 V @ 3 A prefer 9 V @ 2 A, */
-		      sink-pdos = <0x0001912C 0x0002D0C8>;
-		      op-sink-microwatt = <2000000>;  /* 2 W operating power (5 V * 0.4 A) */
+		      /* Fixed PDOs: 5 V @ 3 A, 9 V @ 2 A, and 20 V @ 2 A. */
+		      sink-pdos = <0x0001912C 0x0002D0C8 0x000640C8>;
+		      op-sink-microwatt = <10000000>;
                     };
 
 		};
@@ -44,4 +40,3 @@
 	};
 
 };
-

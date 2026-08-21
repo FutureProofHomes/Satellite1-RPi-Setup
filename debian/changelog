@@ -1,3 +1,10 @@
+satellite1-rpi-setup (1.2-1) unstable; urgency=medium
+
+  * Advertise 20 V at 2 A as a FUSB302 sink capability.
+  * Declare the connector operating power as 10 W.
+
+ -- Mischa Siekmann <mischa.siekmann@futureproofhomes.net>  Fri, 21 Aug 2026 12:00:00 +0000
+
 satellite1-rpi-setup (1.0-1) unstable; urgency=medium
 
   * Initial release: Install Raspberry Pi fusb302 kernel & device tree overlays.

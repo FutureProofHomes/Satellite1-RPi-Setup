@@ -32,7 +32,7 @@ The package declares a dependency on `linux-image-6.18.34-fusb302-rpi-v8`. Ensur
 Install the setup package which configures overlays, ALSA, and boot services:
 
 ```bash
-sudo dpkg -i satellite1-rpi-setup/out/satellite1-rpi-setup_1.0-1_arm64.deb
+sudo dpkg -i satellite1-rpi-setup/out/satellite1-rpi-setup_1.2-1_arm64.deb
 ```
 
 This will:
@@ -107,7 +107,7 @@ Override these on the command line:
 | Variable            | Default                  | Description           |
 | --------------------- | -------------------------- | ----------------------- |
 | `PACKAGE_NAME`      | `satellite1-rpi-setup`   | Package name          |
-| `ACTIVATOR_VERSION` | `1.0`                    | Package version       |
+| `ACTIVATOR_VERSION` | `1.2-1`                  | Package version       |
 | `ARCH`              | `arm64`                  | Target architecture   |
 | `KERNEL_RELEASE`    | `6.18.34-fusb302-rpi-v8` | Kernel version string |
 | `OUT_DIR`           | `$(PWD)/out`             | Output directory      |
@@ -115,7 +115,7 @@ Override these on the command line:
 Example:
 
 ```bash
-make deb KERNEL_RELEASE=6.18.34-fusb302-rpi-v8 ACTIVATOR_VERSION=1.0
+make deb KERNEL_RELEASE=6.18.34-fusb302-rpi-v8 ACTIVATOR_VERSION=1.2-1
 ```
 
 ### Local build (without Docker)
