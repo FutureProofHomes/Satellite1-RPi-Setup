@@ -15,6 +15,7 @@ jobs:
   build:
     runs-on: ubuntu-24.04-arm
     outputs:
+      artifact_name: ${{ steps.package-artifact.outputs.name }}
       release_title: ${{ steps.validate-release.outputs.release_title }}
     steps:
       - name: Check out repository
@@ -93,10 +94,19 @@ jobs:
 
           echo "release_title=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
 
+      - name: Identify package artifact
+        id: package-artifact
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          packages=(out/*/*.deb)
+          test "${#packages[@]}" -eq 1
+          echo "name=$(basename "${packages[0]}")" >> "$GITHUB_OUTPUT"
+
       - name: Upload package artifact
         uses: actions/upload-artifact@v6
         with:
-          name: satellite1-rpi-setup-deb
+          name: ${{ steps.package-artifact.outputs.name }}
           path: out/**/*.deb
           if-no-files-found: error
 
@@ -119,7 +129,7 @@ jobs:
       - name: Download validated package
         uses: actions/download-artifact@v7
         with:
-          name: satellite1-rpi-setup-deb
+          name: ${{ needs.build.outputs.artifact_name }}
           path: release
 
       - name: Publish GitHub Release
