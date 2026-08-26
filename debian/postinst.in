@@ -1,7 +1,9 @@
 #!/bin/sh
 set -e
 
-echo "satellite1-rpi-setup: postinst starting..."
+PACKAGE_NAME="@PACKAGE_NAME@"
+
+echo "${PACKAGE_NAME}: postinst starting..."
 
 # ---- Adjust this to match exactly: uname -r and your linux-image-* version ----
 KVER="@KERNEL_RELEASE@"   # <-- make sure this matches `uname -r`
@@ -12,7 +14,7 @@ INITRD_IMG="initrd.img-${KVER}"
 FW_KERNEL_NAME="kernel8-fusb302.img"   # name we use in /boot(/firmware)
 FW_INITRD_NAME="initrd.img-${KVER}"    # keep same name in firmware dir
 LINUX_IMAGE_DIR="/usr/lib/linux-image-${KVER}"
-SHARE_OVL="/usr/share/satellite1-rpi-setup/overlays"
+SHARE_OVL="/usr/share/${PACKAGE_NAME}/overlays"
 
 # Detect boot dir
 if [ -d /boot/firmware ]; then
@@ -24,7 +26,7 @@ fi
 CFG="${BOOTDIR}/config.txt"
 BOOT_OVL="${BOOTDIR}/overlays"
 
-echo "satellite1-rpi-setup: Using BOOTDIR=${BOOTDIR}, CFG=${CFG}"
+echo "${PACKAGE_NAME}: Using BOOTDIR=${BOOTDIR}, CFG=${CFG}"
 
 # ----- Helpers -----
 
@@ -67,21 +69,21 @@ case "$1" in
     configure)
         # Sanity check: config.txt must exist
         if [ ! -f "$CFG" ]; then
-            echo "satellite1-rpi-setup: config.txt not found at $CFG" >&2
+            echo "${PACKAGE_NAME}: config.txt not found at $CFG" >&2
             exit 0
         fi
 
         # --- Backup config.txt once ---
         if [ ! -f "${CFG}.satellite1.bak" ]; then
             cp "${CFG}" "${CFG}.satellite1.bak"
-            echo "satellite1-rpi-setup: Backed up config.txt to ${CFG}.satellite1.bak"
+            echo "${PACKAGE_NAME}: Backed up config.txt to ${CFG}.satellite1.bak"
         fi
 
         if [ -d "${SHARE_OVL}" ]; then
             cp -p "${SHARE_OVL}/"*.dtbo "${BOOT_OVL}/" 2>/dev/null || true
-            echo "satellite1-rpi-setup: Copied custom overlays from ${SHARE_OVL} to ${BOOT_OVL}"
+            echo "${PACKAGE_NAME}: Copied custom overlays from ${SHARE_OVL} to ${BOOT_OVL}"
         else
-            echo "satellite1-rpi-setup: WARNING: ${SHARE_OVL} not found; no custom overlays copied." >&2
+            echo "${PACKAGE_NAME}: WARNING: ${SHARE_OVL} not found; no custom overlays copied." >&2
         fi
 
         # ----- Enable required firmware interfaces & overlays -----
@@ -104,7 +106,7 @@ case "$1" in
         # Avoid card conflicts with legacy analog audio
         sed -i -E 's/^[[:space:]]*dtparam=audio=on[[:space:]]*$/#dtparam=audio=on/' "$CFG" || true
 
-        echo "satellite1-rpi-setup: overlays configured. Reboot to apply."
+        echo "${PACKAGE_NAME}: overlays configured. Reboot to apply."
         ;;
 esac
 

@@ -1,205 +1,143 @@
-# satellite1-rpi-setup — Raspberry Pi Configuration Package
+# Satellite1 Raspberry Pi Setup
 
-Debian package that configures Raspberry Pi OS for the Satellite1 HAT. Installs device tree overlays, ALSA configuration, and boot-time initialization.
+Debian packaging for the Satellite1 Raspberry Pi configuration. The package
+installs device-tree overlays, ALSA configuration, and boot-time setup for the
+Satellite1 HAT.
 
-> **⚠️ Early-stage development:**
-> This is early-stage experimental software. No official support is provided yet. 
-> For issues and feature requests, open an issue on the GitHub repository: https://github.com/futureproofhomes/Satellite1-RPi/issues
+> This is early-stage experimental software. No official support is provided.
 
-## Overview
+## Package
 
-This package configures the Raspberry Pi to work with the Satellite1 HAT by:
+This repository builds `satellite1-rpi-setup-trixie` for Raspberry Pi OS
+(Trixie).
 
-- Enabling required interfaces (SPI, I²S, I²C) in `/boot/firmware/config.txt`
-- Installing custom device tree overlays:
-  - `satellite1-i2s` — I²S audio support for the HAT
-  - `fusb302b` — USB-C Power Delivery controller
-- Optionally adding the AHT20 temperature/humidity sensor overlay
-- Installing ALSA configuration for Satellite1 audio devices
-- Disable legacy analog audio to prevent conflicts
-- Loading the `i2c-dev` kernel module at boot
-- Creating a systemd service that initializes the DAC and IO expander at boot
+## Build A Local Package
 
-## Prerequisites
-
-- Raspberry Pi OS (Trixie) on a Raspberry Pi Zero W2
-- Custom kernel with FUSB302 support (`linux-image-6.18.34-fusb302-rpi-v8` or compatible)
-
-## Installation
-
-The package declares a dependency on `linux-image-6.18.34-fusb302-rpi-v8`. Ensure this kernel is installed before or during package installation.
-
-Install the setup package which configures overlays, ALSA, and boot services:
-
-```bash
-sudo dpkg -i satellite1-rpi-setup/out/satellite1-rpi-setup_1.2-1_arm64.deb
-```
-
-This will:
-
-- Enable SPI, I²S, and I²C interfaces in `/boot/firmware/config.txt`
-- Install custom device tree overlays (`satellite1-i2s`, `fusb302b`)
-- Copy ALSA configuration to `/etc/alsa/conf.d/50-satellite1.conf`
-- Load the `i2c-dev` kernel module at boot
-- Disable legacy analog audio to prevent conflicts
-
-Reboot to apply kernel configuration changes:
-
-```bash
-sudo reboot
-```
-
-### Automatic kernel dependency
-
-The package declares a dependency on `linux-image-6.18.34-fusb302-rpi-v8`. Ensure this kernel is installed before or during package installation.
-
-## Build Process
-
-### Prerequisites
+Prerequisites:
 
 - Docker
 - `make`
 - Git
 
-### Source layout
+Build a local package with:
 
-```
-satellite1-rpi-setup/
-├── debian/           # Debian packaging metadata
-│   ├── control.in    # Package dependencies template
-│   ├── install.in    # File installation manifest
-│   ├── postinst.in   # Post-install script template
-│   └── rules         # debhelper build rules (compiles .dts → .dtbo)
-├── dt-overlays/      # Device tree overlay sources (.dts)
-│   ├── satellite1-i2s.dts
-│   └── fusb302b.dts
-├── etc/              # Configuration files installed to system
-│   └── alsa/conf.d/50-satellite1.conf
-├── docker/           # Docker build environment
-│   └── Dockerfile.deb.trixie.arm64
-└── Makefile          # Build orchestration
-```
-
-### Build steps
-
-```bash
-# Build the shared Docker image (once)
-make image
-
-# Build the .deb package
+```sh
 make deb
 ```
 
-Built packages are placed in `out/`.
+The build uses Docker and writes its artifact to `out/local/`. Local packages
+are clearly marked and sort below their corresponding public package version:
 
-The build process:
-
-1. Compiles device tree overlays (`.dts` → `.dtbo`) using `dtc`
-2. Generates `DEBIAN/control` from template with package name/version/kernel
-3. Generates `DEBIAN/postinst` with kernel release substitution
-4. Packages everything into a `.deb` using `dpkg-buildpackage`
-
-### Build variables
-
-Override these on the command line:
-
-
-| Variable            | Default                  | Description           |
-| --------------------- | -------------------------- | ----------------------- |
-| `PACKAGE_NAME`      | `satellite1-rpi-setup`   | Package name          |
-| `ACTIVATOR_VERSION` | `1.2-1`                  | Package version       |
-| `ARCH`              | `arm64`                  | Target architecture   |
-| `KERNEL_RELEASE`    | `6.18.34-fusb302-rpi-v8` | Kernel version string |
-| `OUT_DIR`           | `$(PWD)/out`             | Output directory      |
-
-Example:
-
-```bash
-make deb KERNEL_RELEASE=6.18.34-fusb302-rpi-v8 ACTIVATOR_VERSION=1.2-1
+```text
+satellite1-rpi-setup-trixie_<public-version>~local.<build-id>_arm64.deb
 ```
 
-### Local build (without Docker)
+Inspect the active build configuration with:
 
-While possible, building directly on the host is not recommended. Use the Docker-based workflow for reproducibility.
+```sh
+make print-config
+```
 
-## What gets installed
+The package build compiles device-tree overlays, generates the Debian package
+metadata and post-install script, and builds the `.deb` with
+`dpkg-buildpackage`.
 
-| File/Directory                       | Destination                        | Purpose                                    |
-| -------------------------------------- | ------------------------------------ | -------------------------------------------- |
-| `*.dtbo` (compiled overlays)         | `/boot/firmware/overlays/`         | Device tree overlays loaded by kernel      |
-| `etc/alsa/conf.d/50-satellite1.conf` | `/etc/alsa/conf.d/`                | ALSA PCM device configuration              |
-| `postinst` script                    | `DEBIAN/` (run at install)         | Configures`config.txt` and sets up modules |
-| `target-kernel` marker               | `/usr/share/satellite1-rpi-setup/` | Records expected kernel version            |
+## Versioning
 
-## Post-install behavior
+The first entry in `debian/changelog` is the authoritative public package
+version. Debian versions use this format:
 
-The `postinst` script (executed automatically on `dpkg -i`) performs these actions on every install/upgrade:
+```text
+<feature-version>-<package-revision>
+```
 
-1. Copies `.dtbo` files to the boot overlays directory
-2. Backs up `/boot/firmware/config.txt` (once, to `config.txt.satellite1.bak`)
-3. Enables these `dtparam` directives:
-   - `dtparam=spi=on`
-   - `dtparam=i2s=on`
-   - `dtparam=i2c_arm=on`
-   - `dtparam=i2c_arm_baudrate=100000`
-4. Adds `dtoverlay` lines:
-   - `dtoverlay=satellite1-i2s`
-   - `dtoverlay=fusb302b`
-   - `dtoverlay=i2c-sensor,addr=0x38,chip=aht20`
-5. Enables `i2c-dev` module via `/etc/modules-load.d/i2c.conf`
-6. Comments out `dtparam=audio=on` to avoid conflicts with Satellite1 audio
+Examples:
+
+- `1.2-1`: first packaged release of feature set 1.2
+- `1.2-2`: dependency, packaging, configuration, or compatibility update
+- `1.3-1`: first packaged release of feature set 1.3
+
+Increment the feature version for a material setup-package feature change.
+Increment the package revision for changes such as an exact kernel dependency,
+installation behavior, or package metadata.
+
+Local builds derive a version such as `1.2-2~local.<build-id>` in ignored build
+staging only. They never modify `debian/changelog` or consume a public package
+version.
+
+## Releases
+
+CI builds local artifacts for development and manual verification. To prepare a
+public release, manually run the **Prepare Trixie release** workflow from the
+current `develop` tip. The workflow:
+
+- Reads the public version from `debian/changelog`.
+- Builds and validates the corresponding public package.
+- Creates the annotated `v<debian-version>-trixie` tag, for example
+  `v1.2-2-trixie`.
+- Creates a GitHub Release as a draft with the validated `.deb` attached.
+- Generates the draft release body from the top `debian/changelog` entry.
+
+Review and edit the draft release before publishing it.
+
+## Public Release Checklist
+
+1. Update `debian/changelog` with the next public version and release notes.
+2. Set and verify the exact Raspberry Pi OS (Trixie) kernel dependency.
+3. Build and inspect the package from a clean tree.
+4. Commit and merge the release changes to `develop`.
+5. Run the **Prepare Trixie release** workflow from the current `develop` tip.
+6. Review the generated draft GitHub Release and publish it.
+
+## Installation
+
+Download the matching package from a published GitHub Release and install it:
+
+```sh
+sudo apt install ./satellite1-rpi-setup-trixie_<version>_arm64.deb
+```
+
+The package requires its declared kernel package. Reboot after installation to
+apply boot configuration changes.
+
+Installing this package with APT replaces the legacy
+`satellite1-rpi-setup` package automatically.
+
+## Installed Files And Behavior
+
+The package:
+
+- Installs `satellite1-i2s` and `fusb302b` device-tree overlays, then copies
+  them to the firmware overlays directory during installation.
+- Installs ALSA configuration at `/etc/alsa/conf.d/50-satellite1.conf`.
+- Stores package assets below `/usr/share/satellite1-rpi-setup-trixie/`.
+- Configures required SPI, I2S, and I2C boot settings.
+- Loads the `i2c-dev` kernel module and disables legacy analog audio to avoid
+  card conflicts.
+
+The post-install script preserves existing boot configuration changes and
+creates a one-time `config.txt.satellite1.bak` backup.
 
 ## Verification
 
-After install and reboot:
+After installation and reboot:
 
-```bash
-# Check kernel version
+```sh
 uname -r
-# Should show: 6.18.34-fusb302-rpi-v8
-
-# Verify overlays are present
 ls /boot/firmware/overlays/ | grep -E 'satellite1|fusb302'
-# Should list: satellite1-i2s.dtbo, fusb302b.dtbo
-
-# Check config.txt entries
 grep -E 'dtparam|dtoverlay' /boot/firmware/config.txt
-
-# Verify i2c-dev is loaded
 lsmod | grep i2c_dev
 ```
 
 ## Uninstall
 
-```bash
-sudo dpkg --remove satellite1-rpi-setup
+```sh
+sudo apt remove satellite1-rpi-setup-trixie
 ```
 
-Note: The package does **not** remove modifications made to `config.txt` to preserve user changes. Backups are kept at `config.txt.satellite1.bak`.
-
-## Dependencies
-
-Depends on:
-
-- `linux-image-6.18.34-fusb302-rpi-v8` (custom kernel)
-- `flashrom` (for firmware flashing utilities)
-- `libasound2-plugins` (ALSA plugin support)
-- `python3-venv`, `python3-pip` (for SDK installation)
-
-Recommends:
-
-- `alsa-utils` (command-line audio tools)
-- `lm-sensors` (hardware monitoring)
-
-## Related
-
-- Builds along with `satellite1-rpi-sdk` and `rpi-kernel-fusb302` via the top-level `satellite1-rpi` project Makefile
-- Part of the complete Satellite1 SDK distribution
+Uninstalling does not remove boot configuration changes, to preserve user
+changes. The backup remains at `config.txt.satellite1.bak`.
 
 ## License
 
 See the top-level LICENSE file.
-
-## Repository
-
-https://github.com/futureproofhomes/Satellite1-RPi/tree/main/satellite1-rpi-setup
