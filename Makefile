@@ -3,20 +3,35 @@
 
 # ---- High-level config ----------------------------------------------------
 
-PACKAGE_NAME       ?= satellite1-rpi-setup
-ACTIVATOR_VERSION  ?= 1.2-1
+SOURCE_PACKAGE_NAME ?= satellite1-rpi-setup
+DISTRIBUTION        ?= trixie
+PACKAGE_NAME        := $(SOURCE_PACKAGE_NAME)-$(DISTRIBUTION)
 ARCH               ?= arm64
+BUILD_KIND         ?= local
+
+# The source changelog is the public version authority. Local builds derive a
+# lower-sorting version only in their ignored staging directory.
+PUBLIC_VERSION     := $(shell sed -n '1s/.*(\(.*\)).*/\1/p' debian/changelog)
+LOCAL_BUILD_ID     ?= $(shell date -u +%Y%m%dT%H%M%SZ).g$(shell git rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
+
+ifeq ($(BUILD_KIND),public)
+DEB_VERSION        := $(PUBLIC_VERSION)
+else ifeq ($(BUILD_KIND),local)
+DEB_VERSION        := $(PUBLIC_VERSION)~local.$(LOCAL_BUILD_ID)
+else
+$(error BUILD_KIND must be either "local" or "public")
+endif
 
 # Kernel we want to activate (single source of truth)
 KERNEL_RELEASE     ?= 6.18.34-fusb302-rpi-v8
 KERNEL_PKG         ?= linux-image-$(KERNEL_RELEASE)
 
 # Output dir for the built .deb (inside this package dir)
-OUT_DIR            ?= ${PWD}/out
-DEB_FILE           := $(PACKAGE_NAME)_$(ACTIVATOR_VERSION)_$(ARCH).deb
+OUT_DIR            ?= ${PWD}/out/$(BUILD_KIND)
+DEB_FILE           := $(OUT_DIR)/$(PACKAGE_NAME)_$(DEB_VERSION)_$(ARCH).deb
 
 # Build staging directory: where we construct the fake filesystem tree
-BUILD_DIR          := ${PWD}/build
+BUILD_DIR          ?= ${PWD}/build-$(DEB_VERSION)
 DEBIAN_DIR         := ${BUILD_DIR}/debian
 # Where we store the target kernel version so postinst can read it
 TARGET_KERNEL_FILE := ${BUILD_DIR}/target-kernel
@@ -55,8 +70,12 @@ help:
 
 print-config:
 	@echo "PACKAGE_NAME      = $(PACKAGE_NAME)"
-	@echo "ACTIVATOR_VERSION = $(ACTIVATOR_VERSION)"
+	@echo "SOURCE_PACKAGE_NAME = $(SOURCE_PACKAGE_NAME)"
+	@echo "DISTRIBUTION      = $(DISTRIBUTION)"
 	@echo "ARCH              = $(ARCH)"
+	@echo "BUILD_KIND        = $(BUILD_KIND)"
+	@echo "PUBLIC_VERSION    = $(PUBLIC_VERSION)"
+	@echo "DEB_VERSION       = $(DEB_VERSION)"
 	@echo "KERNEL_RELEASE    = $(KERNEL_RELEASE)"
 	@echo "KERNEL_PKG        = $(KERNEL_PKG)"
 	@echo "OUT_DIR           = $(OUT_DIR)"
@@ -81,21 +100,33 @@ deb-local: $(DEB_FILE)
 # Final .deb: build the staged tree, then run dpkg-deb
 $(DEB_FILE): $(DEBIAN_DIR)/control $(DEBIAN_DIR)/postinst $(TARGET_KERNEL_FILE) $(DEBIAN_DIR)/$(PACKAGE_NAME).install
 	mkdir -p "$(OUT_DIR)"
-	echo "*" > "$(OUT_DIR)"/.gitignore
 	$(DOCKER) run --rm --platform=$(PLATFORM) \
 	  -v "$(BUILD_DIR)":/work/src \
 	  -v "$(OUT_DIR)":/out \
+	  -e BUILD_KIND="$(BUILD_KIND)" \
+	  -e DEB_VERSION="$(DEB_VERSION)" \
+	  -e PACKAGE_NAME="$(PACKAGE_NAME)" \
+	  -e ARCH="$(ARCH)" \
 	  -w /work/src \
 	  $(DOCKER_IMAGE) \
-	  bash -lc 'dpkg-buildpackage -b -us -uc && cp ../*.deb /out'
+	  bash -lc 'set -e; \
+	    if [ "$$BUILD_KIND" = local ]; then \
+	      export DEBFULLNAME="Satellite1 local build" DEBEMAIL="local@invalid"; \
+	      dch --newversion "$$DEB_VERSION" --force-bad-version --distribution UNRELEASED --force-distribution "Local, non-release build."; \
+	    fi; \
+	    dpkg-buildpackage -b -us -uc; \
+	    package="../$${PACKAGE_NAME}_$${DEB_VERSION}_$${ARCH}.deb"; \
+	    test -f "$$package"; \
+	    test "$$(dpkg-deb -f "$$package" Version)" = "$$DEB_VERSION"; \
+	    cp "$$package" "/out/$${PACKAGE_NAME}_$${DEB_VERSION}_$${ARCH}.deb"'
 	@echo
 	@echo "Built activator package: $(DEB_FILE)"
 
 # Generate DEBIAN/control from template DEBIAN/control.in
 $(DEBIAN_DIR)/control: $(SRC_CONTROL_IN) | $(DEBIAN_DIR)
 	sed \
+	  -e 's/@SOURCE_PACKAGE_NAME@/$(SOURCE_PACKAGE_NAME)/g' \
 	  -e 's/@PACKAGE_NAME@/$(PACKAGE_NAME)/g' \
-	  -e 's/@VERSION@/$(ACTIVATOR_VERSION)/g' \
 	  -e 's/@ARCH@/$(ARCH)/g' \
 	  -e 's/@KERNEL_PKG@/$(KERNEL_PKG)/g' \
 	  "$<" > "$@"
@@ -103,6 +134,7 @@ $(DEBIAN_DIR)/control: $(SRC_CONTROL_IN) | $(DEBIAN_DIR)
 # Copy postinst into the build tree and make it executable
 $(DEBIAN_DIR)/postinst: $(SRC_POSTINST) | $(DEBIAN_DIR)
 	sed \
+	  -e 's/@PACKAGE_NAME@/$(PACKAGE_NAME)/g' \
 	  -e 's/@KERNEL_RELEASE@/$(KERNEL_RELEASE)/g' \
 	  "$<" > "$@"
 	chmod 0755 "$@"

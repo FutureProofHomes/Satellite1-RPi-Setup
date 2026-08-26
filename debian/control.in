@@ -1,4 +1,4 @@
-Source: @PACKAGE_NAME@
+Source: @SOURCE_PACKAGE_NAME@
 Section: misc
 Priority: optional
 Maintainer: Mischa <mischa.siekmann@futureproofhomes.net>
@@ -25,5 +25,4 @@ Recommends:
 Description: Satellite1 I2S overlay, ALSA config, and boot-time I²C init
  Installs Satellite1 device-tree overlay, ALSA PCM config, and a systemd
  oneshot service that initializes the IO expander and DAC at boot.
-
 
