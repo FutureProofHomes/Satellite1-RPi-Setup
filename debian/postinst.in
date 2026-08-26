@@ -22,6 +22,7 @@ else
 fi
 
 CFG="${BOOTDIR}/config.txt"
+CMDLINE="$(dirname "$CFG")/cmdline.txt"
 BOOT_OVL="${BOOTDIR}/overlays"
 
 echo "satellite1-rpi-setup: Using BOOTDIR=${BOOTDIR}, CFG=${CFG}"
@@ -109,13 +110,34 @@ case "$1" in
         ensure_overlay_line "i2c-sensor,addr=0x38,chip=aht20"
 
         # LD2410 mmWave presence sensor (UART).
-        # The sensor's native baud rate is 256000, which needs the stable
-        # PL011 UART rather than the mini-UART. disable-bt routes PL011 to
-        # the GPIO header (GPIO14/15 -> /dev/ttyAMA0) and frees it from the
-        # onboard Bluetooth. Bluetooth is disabled as a result; the HAT
-        # provides audio, so this does not affect voice I/O.
+        #
+        # enable_uart=1 exposes a UART on GPIO14/15. With Bluetooth left in
+        # place this is the mini-UART (/dev/ttyS0), which keeps onboard
+        # Bluetooth working and is sufficient for the LD2410 firmware shipped
+        # on the Satellite1 HAT (115200 baud). Measured on a Pi Zero 2 W: zero
+        # framing errors over sustained captures, both idle and under full CPU
+        # load, with core_freq steady.
+        #
+        # Sensors running the Hi-Link factory default of 256000 baud should use
+        # the PL011 instead -- see README "mmWave sensor UART". The mini-UART
+        # has a smaller FIFO and no fractional baud divisor, and at 256000 it
+        # drops frames silently rather than corrupting them.
         ensure_setting enable_uart 1
-        ensure_overlay_name "disable-bt"
+
+        # Free the GPIO UART from the serial console.
+        #
+        # Raspberry Pi OS ships console=serial0 (and console=ttyAMA0) on the
+        # kernel command line. systemd's getty generator then starts a login
+        # prompt on whichever tty serial0 resolves to, and that getty holds the
+        # port: opening it from an application yields reads that return no data
+        # ("device reports readiness to read but returned no data"), which looks
+        # exactly like a broken sensor or a bad baud rate. Strip the serial
+        # console so the port belongs to the sensor; console=tty1 is untouched.
+        if [ -f "$CMDLINE" ]; then
+            cp -a "$CMDLINE" "${CMDLINE}.satellite1-bak" 2>/dev/null || true
+            sed -i -E 's/(^| )console=(serial0|ttyAMA0|ttyS0),[0-9]+//g' "$CMDLINE"
+            sed -i -E 's/  +/ /g; s/^ //; s/ $//' "$CMDLINE"
+        fi
 
         # Auto load i2c-dev module
         echo i2c-dev | sudo tee /etc/modules-load.d/i2c.conf

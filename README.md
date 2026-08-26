@@ -15,7 +15,7 @@ This package configures the Raspberry Pi to work with the Satellite1 HAT by:
   - `satellite1-i2s` — I²S audio support for the HAT
   - `fusb302b` — USB-C Power Delivery controller
 - Optionally adding the AHT20 temperature/humidity sensor overlay
-- Enabling the UART for an LD2410 mmWave presence sensor (routes the PL011 UART to the GPIO header via `disable-bt`)
+- Enabling the GPIO UART for an LD2410 mmWave presence sensor (keeps onboard Bluetooth; frees the port from the serial console)
 - Installing ALSA configuration for Satellite1 audio devices
 - Disable legacy analog audio to prevent conflicts
 - Loading the `i2c-dev` kernel module at boot
@@ -147,13 +147,11 @@ The `postinst` script (executed automatically on `dpkg -i`) performs these actio
    - `dtoverlay=satellite1-i2s`
    - `dtoverlay=fusb302b`
    - `dtoverlay=i2c-sensor,addr=0x38,chip=aht20`
-   - `dtoverlay=disable-bt` (LD2410 mmWave UART — see below)
-5. Enables the UART for the LD2410 mmWave sensor:
+5. Enables the GPIO UART for the LD2410 mmWave sensor:
    - `enable_uart=1`
-   - `dtoverlay=disable-bt` moves the stable PL011 UART to GPIO14/15
-     (`/dev/ttyAMA0`) so the LD2410 works at its native 256000 baud.
-     This disables onboard Bluetooth; the HAT provides audio, so voice
-     I/O is unaffected.
+   - Removes `console=serial0/ttyAMA0/ttyS0` from `cmdline.txt` so a serial
+     getty does not hold the sensor's port (a backup is written alongside).
+     Onboard Bluetooth is left enabled — see "mmWave sensor UART" below.
 6. Enables `i2c-dev` module via `/etc/modules-load.d/i2c.conf`
 7. Comments out `dtparam=audio=on` to avoid conflicts with Satellite1 audio
 
@@ -176,9 +174,44 @@ grep -E 'dtparam|dtoverlay' /boot/firmware/config.txt
 # Verify i2c-dev is loaded
 lsmod | grep i2c_dev
 
-# Verify the LD2410 UART is on the GPIO header (Bluetooth disabled)
-ls -l /dev/serial0
-# Should point to ttyAMA0
+# Verify the GPIO UART exists and nothing else holds it
+ls -l /dev/serial0            # -> ttyS0 (default) or ttyAMA0 (PL011 variants)
+sudo fuser -v /dev/serial0    # should report no holder
+```
+
+## mmWave sensor UART
+
+`enable_uart=1` puts a UART on GPIO14/15 for the LD2410. Which UART you get, and
+whether Bluetooth survives, depends on the overlay:
+
+| config.txt | GPIO14/15 gets | Onboard Bluetooth | Use when |
+|---|---|---|---|
+| `enable_uart=1` (default here) | mini-UART, `/dev/ttyS0` | **kept** | LD2410 firmware shipped on the Satellite1 HAT (115200 baud) |
+| `+ dtoverlay=miniuart-bt` | PL011, `/dev/ttyAMA0` | kept (moved to mini-UART) | sensor needs PL011 **and** you want Bluetooth |
+| `+ dtoverlay=disable-bt` | PL011, `/dev/ttyAMA0` | **disabled** | sensor needs PL011 and Bluetooth is not required |
+
+The default keeps Bluetooth because the mini-UART is sufficient at 115200.
+Measured on a Pi Zero 2 W with the HAT's LD2410: zero framing errors across
+sustained captures, idle and under full CPU load, with `core_freq` steady.
+
+Prefer PL011 if your sensor runs the Hi-Link factory default of **256000 baud**.
+The mini-UART has a smaller FIFO and no fractional baud divisor; at 256000 it
+tends to *drop* frames rather than corrupt them, so the data still parses
+cleanly and the loss is easy to miss — check throughput, not just validity.
+
+### The serial console will steal the port
+
+Raspberry Pi OS ships `console=serial0,115200` on the kernel command line, so
+systemd starts a login prompt on whichever tty `serial0` resolves to. That getty
+holds the port, and an application opening it sees reads that return no data
+(`device reports readiness to read but returned no data`) — indistinguishable
+from a dead sensor or a wrong baud rate. The postinst strips those `console=`
+entries; `console=tty1` is left alone. If you change the overlay afterwards,
+re-check that nothing holds the new port:
+
+```bash
+sudo fuser -v /dev/serial0
+systemctl list-units 'serial-getty*'
 ```
 
 ## Uninstall
