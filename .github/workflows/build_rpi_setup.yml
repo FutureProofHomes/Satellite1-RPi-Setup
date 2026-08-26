@@ -124,16 +124,25 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.ref }}
+
       - name: Download validated package
         uses: actions/download-artifact@v7
         with:
           name: ${{ needs.build.outputs.artifact_name }}
           path: release
 
+      - name: Generate release notes from Debian changelog
+        run: dpkg-parsechangelog -S Changes > release-notes.md
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ needs.build.outputs.release_title }}
-          generate_release_notes: true
+          draft: true
+          body_path: release-notes.md
           files: release/*.deb
