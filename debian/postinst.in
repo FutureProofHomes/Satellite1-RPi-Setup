@@ -63,6 +63,16 @@ ensure_overlay_line() {
     fi
 }
 
+# Ensure a bare "key=value" firmware setting exists; if present (even commented), replace it
+ensure_setting() {
+    key="$1"; val="$2"
+    if grep -Eq "^[#[:space:]]*${key}[[:space:]]*=" "$CFG"; then
+        sed -i -E "s|^[#[:space:]]*${key}[[:space:]]*=.*$|${key}=${val}|" "$CFG"
+    else
+        printf "%s=%s\n" "$key" "$val" >> "$CFG"
+    fi
+}
+
 case "$1" in
     configure)
         # Sanity check: config.txt must exist
@@ -97,6 +107,15 @@ case "$1" in
 
         # Optional sensor overlay
         ensure_overlay_line "i2c-sensor,addr=0x38,chip=aht20"
+
+        # LD2410 mmWave presence sensor (UART).
+        # The sensor's native baud rate is 256000, which needs the stable
+        # PL011 UART rather than the mini-UART. disable-bt routes PL011 to
+        # the GPIO header (GPIO14/15 -> /dev/ttyAMA0) and frees it from the
+        # onboard Bluetooth. Bluetooth is disabled as a result; the HAT
+        # provides audio, so this does not affect voice I/O.
+        ensure_setting enable_uart 1
+        ensure_overlay_name "disable-bt"
 
         # Auto load i2c-dev module
         echo i2c-dev | sudo tee /etc/modules-load.d/i2c.conf

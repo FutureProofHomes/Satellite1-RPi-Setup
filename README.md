@@ -15,6 +15,7 @@ This package configures the Raspberry Pi to work with the Satellite1 HAT by:
   - `satellite1-i2s` — I²S audio support for the HAT
   - `fusb302b` — USB-C Power Delivery controller
 - Optionally adding the AHT20 temperature/humidity sensor overlay
+- Enabling the UART for an LD2410 mmWave presence sensor (routes the PL011 UART to the GPIO header via `disable-bt`)
 - Installing ALSA configuration for Satellite1 audio devices
 - Disable legacy analog audio to prevent conflicts
 - Loading the `i2c-dev` kernel module at boot
@@ -146,8 +147,15 @@ The `postinst` script (executed automatically on `dpkg -i`) performs these actio
    - `dtoverlay=satellite1-i2s`
    - `dtoverlay=fusb302b`
    - `dtoverlay=i2c-sensor,addr=0x38,chip=aht20`
-5. Enables `i2c-dev` module via `/etc/modules-load.d/i2c.conf`
-6. Comments out `dtparam=audio=on` to avoid conflicts with Satellite1 audio
+   - `dtoverlay=disable-bt` (LD2410 mmWave UART — see below)
+5. Enables the UART for the LD2410 mmWave sensor:
+   - `enable_uart=1`
+   - `dtoverlay=disable-bt` moves the stable PL011 UART to GPIO14/15
+     (`/dev/ttyAMA0`) so the LD2410 works at its native 256000 baud.
+     This disables onboard Bluetooth; the HAT provides audio, so voice
+     I/O is unaffected.
+6. Enables `i2c-dev` module via `/etc/modules-load.d/i2c.conf`
+7. Comments out `dtparam=audio=on` to avoid conflicts with Satellite1 audio
 
 ## Verification
 
@@ -167,6 +175,10 @@ grep -E 'dtparam|dtoverlay' /boot/firmware/config.txt
 
 # Verify i2c-dev is loaded
 lsmod | grep i2c_dev
+
+# Verify the LD2410 UART is on the GPIO header (Bluetooth disabled)
+ls -l /dev/serial0
+# Should point to ttyAMA0
 ```
 
 ## Uninstall
