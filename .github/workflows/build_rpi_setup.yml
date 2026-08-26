@@ -1,11 +1,9 @@
-name: Build and release setup package
+name: Build local setup package
 
 on:
   push:
     branches:
       - develop
-    tags:
-      - "v*-*"
   workflow_dispatch:
 
 permissions:
@@ -14,14 +12,9 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-24.04-arm
-    outputs:
-      artifact_name: ${{ steps.package-artifact.outputs.name }}
-      release_title: ${{ steps.validate-release.outputs.release_title }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
 
       - name: Restore package cache
         uses: actions/cache@v5
@@ -44,60 +37,17 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      - name: Build setup package
+      - name: Build local setup package
         run: |
           make clean
-          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == refs/tags/* ]]; then
-            if [[ "${{ github.ref_name }}" =~ ^v.+-trixie$ ]]; then
-              make deb BUILD_KIND=public
-            else
-              echo "Trixie release tags must use v<debian-version>-trixie: ${{ github.ref_name }}" >&2
-              exit 1
-            fi
-          else
-            make deb BUILD_KIND=local
-          fi
-
-      - name: Validate release package
-        id: validate-release
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-        env:
-          RELEASE_TAG: ${{ github.ref_name }}
-        run: |
-          set -euo pipefail
-
-          if [[ ! "$RELEASE_TAG" =~ ^v(.+)-trixie$ ]]; then
-            echo "Trixie release tags must use v<debian-version>-trixie: $RELEASE_TAG" >&2
-            exit 1
-          fi
-
-          debian_version="${BASH_REMATCH[1]}"
-          distribution="trixie"
-          changelog_version="$(dpkg-parsechangelog -S Version)"
-          package_name="satellite1-rpi-setup-${distribution}"
-          package_file="out/public/${package_name}_${debian_version}_arm64.deb"
-
-          test "$(git cat-file -t "refs/tags/$RELEASE_TAG")" = "tag"
-          test "$changelog_version" = "$debian_version"
-          test -f "$package_file"
-          test "$(dpkg-deb -f "$package_file" Package)" = "$package_name"
-          test "$(dpkg-deb -f "$package_file" Version)" = "$debian_version"
-          test "$(dpkg-deb -f "$package_file" Architecture)" = "arm64"
-
-          dependencies="$(dpkg-deb -f "$package_file" Depends)"
-          if [[ "$dependencies" != *"linux-image-"*"-${distribution}-"* ]]; then
-            echo "Package dependency does not target $distribution: $dependencies" >&2
-            exit 1
-          fi
-
-          echo "release_title=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
+          make deb BUILD_KIND=local
 
       - name: Identify package artifact
         id: package-artifact
         run: |
           set -euo pipefail
           shopt -s nullglob
-          packages=(out/*/*.deb)
+          packages=(out/local/*.deb)
           test "${#packages[@]}" -eq 1
           echo "name=$(basename "${packages[0]}")" >> "$GITHUB_OUTPUT"
 
@@ -105,7 +55,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: ${{ steps.package-artifact.outputs.name }}
-          path: out/**/*.deb
+          path: out/local/*.deb
           if-no-files-found: error
 
       - name: Save package cache
@@ -116,33 +66,3 @@ jobs:
             sudo rm -rf apt-cache/*
             sudo mv -f /var/cache/apt-cacher-ng/* apt-cache/ || true
           fi
-
-  release:
-    needs: build
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Check out tagged source
-        uses: actions/checkout@v5
-        with:
-          ref: ${{ github.ref }}
-
-      - name: Download validated package
-        uses: actions/download-artifact@v7
-        with:
-          name: ${{ needs.build.outputs.artifact_name }}
-          path: release
-
-      - name: Generate release notes from Debian changelog
-        run: dpkg-parsechangelog -S Changes > release-notes.md
-
-      - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: ${{ needs.build.outputs.release_title }}
-          draft: true
-          body_path: release-notes.md
-          files: release/*.deb
