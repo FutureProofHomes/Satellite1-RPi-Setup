@@ -100,6 +100,9 @@ sudo apt install ./satellite1-rpi-setup-trixie_<version>_arm64.deb
 The package requires its declared kernel package. Reboot after installation to
 apply boot configuration changes.
 
+Installing this package with APT replaces the legacy
+`satellite1-rpi-setup` package automatically.
+
 ## Installed Files And Behavior
 
 The package:

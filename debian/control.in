@@ -19,10 +19,11 @@ Depends:
   python3-pip, 
   flashrom,
   libasound2-plugins
+Conflicts: satellite1-rpi-setup
+Replaces: satellite1-rpi-setup
 Recommends:
   alsa-utils,
   lm-sensors  
 Description: Satellite1 I2S overlay, ALSA config, and boot-time I²C init
  Installs Satellite1 device-tree overlay, ALSA PCM config, and a systemd
  oneshot service that initializes the IO expander and DAC at boot.
-
