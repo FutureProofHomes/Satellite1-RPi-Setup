@@ -36,6 +36,11 @@ satellite1-rpi-setup-trixie
 satellite1-rpi-setup-bookworm
 ```
 
+This `develop` branch is the temporary Trixie stream and hardcodes its target
+as Trixie. It will later be renamed to `trixie`. A future `bookworm` branch
+will hardcode Bookworm instead; builds must not select their distribution at
+dispatch time.
+
 For example, a Trixie setup package may depend on:
 
 ```text
@@ -83,8 +88,8 @@ The release tag, Debian package version, target distribution, package
 architecture, and exact kernel dependency form the package identity. CI must
 verify these values before publishing a release.
 
-Branch and pull-request builds may upload GitHub Actions artifacts, but they
-must not create Git tags or GitHub Releases.
+Pushes to the distribution stream and manually dispatched builds may upload
+GitHub Actions artifacts, but they must not create Git tags or GitHub Releases.
 
 ## Local Builds
 

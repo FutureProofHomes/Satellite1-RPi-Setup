@@ -7,15 +7,6 @@ on:
     tags:
       - "v*-*"
   workflow_dispatch:
-    inputs:
-      distribution:
-        description: Target Debian distribution
-        required: true
-        default: trixie
-        type: choice
-        options:
-          - trixie
-          - bookworm
 
 permissions:
   contents: read
@@ -58,16 +49,14 @@ jobs:
         run: |
           make clean
           if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == refs/tags/* ]]; then
-            if [[ "${{ github.ref_name }}" =~ ^v.+-(trixie|bookworm)$ ]]; then
-              make deb BUILD_KIND=public DISTRIBUTION="${BASH_REMATCH[1]}"
+            if [[ "${{ github.ref_name }}" =~ ^v.+-trixie$ ]]; then
+              make deb BUILD_KIND=public
             else
-              echo "Release tag must use v<debian-version>-<distribution>: ${{ github.ref_name }}" >&2
+              echo "Trixie release tags must use v<debian-version>-trixie: ${{ github.ref_name }}" >&2
               exit 1
             fi
-          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            make deb BUILD_KIND=local DISTRIBUTION="${{ inputs.distribution }}"
           else
-            make deb BUILD_KIND=local DISTRIBUTION=trixie
+            make deb BUILD_KIND=local
           fi
 
       - name: Validate release package
@@ -78,13 +67,13 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [[ ! "$RELEASE_TAG" =~ ^v(.+)-(trixie|bookworm)$ ]]; then
-            echo "Release tag must use v<debian-version>-<distribution>: $RELEASE_TAG" >&2
+          if [[ ! "$RELEASE_TAG" =~ ^v(.+)-trixie$ ]]; then
+            echo "Trixie release tags must use v<debian-version>-trixie: $RELEASE_TAG" >&2
             exit 1
           fi
 
           debian_version="${BASH_REMATCH[1]}"
-          distribution="${BASH_REMATCH[2]}"
+          distribution="trixie"
           changelog_version="$(dpkg-parsechangelog -S Version)"
           package_name="satellite1-rpi-setup-${distribution}"
           package_file="out/public/${package_name}_${debian_version}_arm64.deb"

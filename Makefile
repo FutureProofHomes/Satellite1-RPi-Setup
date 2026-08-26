@@ -4,7 +4,9 @@
 # ---- High-level config ----------------------------------------------------
 
 SOURCE_PACKAGE_NAME ?= satellite1-rpi-setup
-DISTRIBUTION        ?= trixie
+# This branch is the Trixie stream. The future Bookworm branch sets this to
+# bookworm rather than allowing a build-time override.
+override DISTRIBUTION := trixie
 PACKAGE_NAME        := $(SOURCE_PACKAGE_NAME)-$(DISTRIBUTION)
 ARCH               ?= arm64
 BUILD_KIND         ?= local
