@@ -6,7 +6,7 @@ export DH_VERBOSE=1
 
 OVERLAY_SRC_DIR := $(CURDIR)/dt-overlays
 DTBO_BUILD_DIR  := $(CURDIR)/debian/.dtbo-build
-OVERLAYS        := satellite1-i2s fusb302
+OVERLAYS        := satellite1-i2s fusb302b
 
 # Build targets (list of .dtbo files we'll produce)
 DTBOS := $(addprefix $(DTBO_BUILD_DIR)/,$(addsuffix .dtbo,$(OVERLAYS)))
