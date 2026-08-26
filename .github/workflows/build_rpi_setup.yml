@@ -18,12 +18,12 @@ jobs:
       release_title: ${{ steps.validate-release.outputs.release_title }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Restore package cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: apt-cache/
           key: ${{ runner.os }}-${{ github.job }}-${{ inputs.image-name }}
@@ -41,7 +41,7 @@ jobs:
           sudo service apt-cacher-ng restart
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
         with:
           install: true
 
@@ -94,7 +94,7 @@ jobs:
           echo "release_title=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
 
       - name: Upload package artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: satellite1-rpi-setup-deb
           path: out/**/*.deb
@@ -117,13 +117,13 @@ jobs:
       contents: write
     steps:
       - name: Download validated package
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: satellite1-rpi-setup-deb
           path: release
 
       - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ needs.build.outputs.release_title }}
