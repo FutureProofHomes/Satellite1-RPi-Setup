@@ -58,7 +58,7 @@ Examples:
 - `1.3-1`: first packaged release of feature set 1.3
 
 Increment the feature version for a material setup-package feature change.
-Increment the package revision for changes such as an exact kernel dependency,
+Increment the package revision for changes such as a kernel meta-package dependency,
 installation behavior, or package metadata.
 
 Local builds derive a version such as `1.2-2~local.<build-id>` in ignored build
@@ -83,7 +83,7 @@ Review and edit the draft release before publishing it.
 ## Public Release Checklist
 
 1. Update `debian/changelog` with the next public version and release notes.
-2. Set and verify the exact Raspberry Pi OS (Trixie) kernel dependency.
+2. Set and verify the Raspberry Pi OS (Trixie) FUSB302 kernel meta-package dependency.
 3. Build and inspect the package from a clean tree.
 4. Commit and merge the release changes to `develop`.
 5. Run the **Prepare Trixie release** workflow from the current `develop` tip.
@@ -91,14 +91,19 @@ Review and edit the draft release before publishing it.
 
 ## Installation
 
-Download the matching package from a published GitHub Release and install it:
+Download the setup package plus the matching kernel image and meta-package
+assets from their published GitHub Releases, then install them together:
 
 ```sh
-sudo apt install ./satellite1-rpi-setup-trixie_<version>_arm64.deb
+sudo apt install \
+  ./linux-image-<kernel-release>_<revision>_arm64.deb \
+  ./linux-image-fusb302-trixie-rpi-v8_<kernel-version>-<revision>_arm64.deb \
+  ./satellite1-rpi-setup-trixie_<version>_arm64.deb
 ```
 
-The package requires its declared kernel package. Reboot after installation to
-apply boot configuration changes.
+The setup package depends on the stable FUSB302 Trixie kernel meta package,
+which in turn depends on its matching kernel image. Reboot after installation
+to apply boot configuration changes.
 
 Installing this package with APT replaces the legacy
 `satellite1-rpi-setup` package automatically.
