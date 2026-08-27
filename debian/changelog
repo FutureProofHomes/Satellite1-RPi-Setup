@@ -1,7 +1,8 @@
-satellite1-rpi-setup (1.2-1) unstable; urgency=medium
+satellite1-rpi-setup (1.2-1) trixie; urgency=medium
 
   * Advertise 20 V at 2 A as a FUSB302 sink capability.
   * Declare the connector operating power as 10 W.
+  * Depend on the stable FUSB302 Trixie kernel meta package.
 
  -- Mischa Siekmann <mischa.siekmann@futureproofhomes.net>  Fri, 21 Aug 2026 12:00:00 +0000
 

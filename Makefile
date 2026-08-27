@@ -24,9 +24,8 @@ else
 $(error BUILD_KIND must be either "local" or "public")
 endif
 
-# Kernel we want to activate (single source of truth)
-KERNEL_RELEASE     ?= 6.18.34-fusb302-rpi-v8
-KERNEL_PKG         ?= linux-image-$(KERNEL_RELEASE)
+# Stable kernel meta package for this distribution.
+KERNEL_PKG         := linux-image-fusb302-$(DISTRIBUTION)-rpi-v8
 
 # Output dir for the built .deb (inside this package dir)
 OUT_DIR            ?= ${PWD}/out/$(BUILD_KIND)
@@ -35,10 +34,6 @@ DEB_FILE           := $(OUT_DIR)/$(PACKAGE_NAME)_$(DEB_VERSION)_$(ARCH).deb
 # Build staging directory: where we construct the fake filesystem tree
 BUILD_DIR          ?= ${PWD}/build-$(DEB_VERSION)
 DEBIAN_DIR         := ${BUILD_DIR}/debian
-# Where we store the target kernel version so postinst can read it
-TARGET_KERNEL_FILE := ${BUILD_DIR}/target-kernel
-TARGET_KERNEL_DST  := /usr/share/$(PACKAGE_NAME)/target-kernel
-
 
 # Source locations (things you edit by hand)
 THIS_MAKEFILE      := $(abspath $(lastword $(MAKEFILE_LIST)))
@@ -78,7 +73,6 @@ print-config:
 	@echo "BUILD_KIND        = $(BUILD_KIND)"
 	@echo "PUBLIC_VERSION    = $(PUBLIC_VERSION)"
 	@echo "DEB_VERSION       = $(DEB_VERSION)"
-	@echo "KERNEL_RELEASE    = $(KERNEL_RELEASE)"
 	@echo "KERNEL_PKG        = $(KERNEL_PKG)"
 	@echo "OUT_DIR           = $(OUT_DIR)"
 	@echo "BUILD_DIR         = $(BUILD_DIR)"
@@ -100,7 +94,7 @@ image:
 deb-local: $(DEB_FILE)
 
 # Final .deb: build the staged tree, then run dpkg-deb
-$(DEB_FILE): $(DEBIAN_DIR)/control $(DEBIAN_DIR)/postinst $(TARGET_KERNEL_FILE) $(DEBIAN_DIR)/$(PACKAGE_NAME).install
+$(DEB_FILE): $(DEBIAN_DIR)/control $(DEBIAN_DIR)/postinst $(DEBIAN_DIR)/$(PACKAGE_NAME).install
 	mkdir -p "$(OUT_DIR)"
 	$(DOCKER) run --rm --platform=$(PLATFORM) \
 	  -v "$(BUILD_DIR)":/work/src \
@@ -135,22 +129,12 @@ $(DEBIAN_DIR)/control: $(SRC_CONTROL_IN) | $(DEBIAN_DIR)
 
 # Copy postinst into the build tree and make it executable
 $(DEBIAN_DIR)/postinst: $(SRC_POSTINST) | $(DEBIAN_DIR)
-	sed \
-	  -e 's/@PACKAGE_NAME@/$(PACKAGE_NAME)/g' \
-	  -e 's/@KERNEL_RELEASE@/$(KERNEL_RELEASE)/g' \
-	  "$<" > "$@"
+	sed -e 's/@PACKAGE_NAME@/$(PACKAGE_NAME)/g' "$<" > "$@"
 	chmod 0755 "$@"
 
-# Write the target kernel version into /usr/share/<pkgname>/target-kernel
-$(TARGET_KERNEL_FILE):
-	mkdir -p "$(dir $(TARGET_KERNEL_FILE))"
-	echo "$(KERNEL_RELEASE)" > "$(TARGET_KERNEL_FILE)"
-	
-# Copy postinst into the build tree and make it executable
-$(DEBIAN_DIR)/$(PACKAGE_NAME).install: $(SRC_INSTALL_FILE) $(TARGET_KERNEL_FILE) | $(DEBIAN_DIR)
-	cp "$<" "$@"	
-	echo "\ntarget-kernel ${TARGET_KERNEL_DST}" >> "$@"
-	echo "debian/.dtbo-build/*.dtbo  /usr/share/$(PACKAGE_NAME)/overlays" >> "$@"
+$(DEBIAN_DIR)/$(PACKAGE_NAME).install: $(SRC_INSTALL_FILE) | $(DEBIAN_DIR)
+	cp "$<" "$@"
+	printf '\n%s\n' "debian/.dtbo-build/*.dtbo  /usr/share/$(PACKAGE_NAME)/overlays" >> "$@"
 
 # Ensure DEBIAN dir exists in PKG_ROOT
 $(DEBIAN_DIR):
