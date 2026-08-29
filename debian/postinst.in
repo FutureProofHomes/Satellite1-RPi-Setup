@@ -48,12 +48,19 @@ ensure_overlay_name() {
     fi
 }
 
-# Ensure an exact dtoverlay line with parameters exists (e.g. "i2c-sensor,addr=0x38,chip=aht20")
+# Ensure an exact dtoverlay line with parameters exists.
 ensure_overlay_line() {
     line="$1"
     if ! grep -Eq "^[#[:space:]]*dtoverlay[[:space:]]*=[[:space:]]*${line}[[:space:]]*$" "$CFG"; then
         printf "dtoverlay=%s\n" "$line" >> "$CFG"
     fi
+}
+
+# The i2c-sensor overlay selects the AHT20 with a boolean ``aht20`` parameter.
+# Earlier setup packages wrote an unsupported ``chip=aht20`` parameter instead.
+ensure_aht20_overlay() {
+    sed -i -E 's|^[[:space:]]*dtoverlay[[:space:]]*=[[:space:]]*i2c-sensor,addr=0x38,chip=aht20[[:space:]]*$|#& # replaced by satellite1-rpi-setup|' "$CFG"
+    ensure_overlay_line "i2c-sensor,aht20"
 }
 
 # SPI0's default second chip select is BCM 7, which is the Satellite1 action
@@ -99,7 +106,7 @@ case "$1" in
         ensure_overlay_name "fusb302b"
 
         # Optional sensor overlay
-        ensure_overlay_line "i2c-sensor,addr=0x38,chip=aht20"
+        ensure_aht20_overlay
 
         # Auto load i2c-dev module
         echo i2c-dev | sudo tee /etc/modules-load.d/i2c.conf

@@ -1,3 +1,9 @@
+satellite1-rpi-setup (1.4-1) trixie; urgency=medium
+
+  * Fix the AHT20 i2c-sensor overlay syntax and migrate invalid entries.
+
+ -- Mischa Siekmann <mischa.siekmann@futureproofhomes.net>  Sat, 29 Aug 2026 00:00:00 +0000
+
 satellite1-rpi-setup (1.3-1) trixie; urgency=medium
 
   * Route SPI0 CS1 to BCM 26, freeing BCM 7 for the Satellite1 action button.
