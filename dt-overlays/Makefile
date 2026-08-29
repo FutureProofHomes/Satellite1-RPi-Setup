@@ -48,9 +48,14 @@ uninstall:
 
 enable:
 	@echo "[ENABLE] Updating $(CONFIG_TXT)"
-	# Ensure I2S + SPI dtparams exist
+	# Ensure I2S dtparam exists and route SPI0 CS1 away from BCM 7, which is
+	# the Satellite1 action button input.
 	@grep -q '^dtparam=i2s=on$$' "$(CONFIG_TXT)" || echo 'dtparam=i2s=on' | $(SUDO) tee -a "$(CONFIG_TXT)" >/dev/null
-	@grep -q '^dtparam=spi=on$$' "$(CONFIG_TXT)" || echo 'dtparam=spi=on' | $(SUDO) tee -a "$(CONFIG_TXT)" >/dev/null
+	@$(SUDO) sed -i -E 's|^[[:space:]]*dtparam[[:space:]]*=[[:space:]]*spi=on[[:space:]]*$$|#dtparam=spi=on # managed by satellite1-rpi-setup|' "$(CONFIG_TXT)"
+	@if ! grep -q '^dtoverlay=spi0-2cs,cs1_pin=26$$' "$(CONFIG_TXT)"; then \
+	  $(SUDO) sed -i -E 's@^[[:space:]]*dtoverlay[[:space:]]*=[[:space:]]*spi0-(1cs|2cs)(,[^[:space:]]*)?[[:space:]]*$$@#\0@' "$(CONFIG_TXT)"; \
+	  echo 'dtoverlay=spi0-2cs,cs1_pin=26' | $(SUDO) tee -a "$(CONFIG_TXT)" >/dev/null; \
+	fi
 	# Disable legacy analog audio (optional but avoids card conflicts)
 	@$(SUDO) sed -i 's/^[[:space:]]*dtparam=audio=on[[:space:]]*$$/#dtparam=audio=on/' "$(CONFIG_TXT)" || true
 	# Add dtoverlay lines for each overlay
@@ -83,4 +88,3 @@ clean:
 help:
 	@echo "Targets: all (build), install, uninstall, enable, clean"
 	@echo "Vars: OVERLAYS, SRC_DIR, BUILD_DIR, DTC, DTCFLAGS, SUDO"
-

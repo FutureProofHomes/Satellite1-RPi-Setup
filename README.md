@@ -116,7 +116,9 @@ The package:
   them to the firmware overlays directory during installation.
 - Installs ALSA configuration at `/etc/alsa/conf.d/50-satellite1.conf`.
 - Stores package assets below `/usr/share/satellite1-rpi-setup-trixie/`.
-- Configures required SPI, I2S, and I2C boot settings.
+- Configures required SPI, I2S, and I2C boot settings. SPI0 CS0 remains on
+  BCM 8 for XMOS and CS1 is routed to BCM 26, leaving BCM 7 for the action
+  button.
 - Loads the `i2c-dev` kernel module and disables legacy analog audio to avoid
   card conflicts.
 
@@ -133,6 +135,14 @@ ls /boot/firmware/overlays/ | grep -E 'satellite1|fusb302'
 grep -E 'dtparam|dtoverlay' /boot/firmware/config.txt
 lsmod | grep i2c_dev
 ```
+
+The active SPI0 configuration must include:
+
+```text
+dtoverlay=spi0-2cs,cs1_pin=26
+```
+
+`dtparam=spi=on` must not be active, because it assigns SPI0 CS1 to BCM 7.
 
 ## Uninstall
 

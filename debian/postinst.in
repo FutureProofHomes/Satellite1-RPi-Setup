@@ -56,6 +56,16 @@ ensure_overlay_line() {
     fi
 }
 
+# SPI0's default second chip select is BCM 7, which is the Satellite1 action
+# button input. Use BCM 26 instead while retaining CS0 on BCM 8 for XMOS.
+ensure_spi0_cs1_pin() {
+    sed -i -E 's|^[[:space:]]*dtparam[[:space:]]*=[[:space:]]*spi=on[[:space:]]*$|#dtparam=spi=on # managed by satellite1-rpi-setup|' "$CFG"
+    if ! grep -Eq '^[[:space:]]*dtoverlay[[:space:]]*=[[:space:]]*spi0-2cs,cs1_pin=26[[:space:]]*$' "$CFG"; then
+        sed -i -E 's@^[[:space:]]*dtoverlay[[:space:]]*=[[:space:]]*spi0-(1cs|2cs)(,[^[:space:]]*)?[[:space:]]*$@#\0@' "$CFG"
+        ensure_overlay_line "spi0-2cs,cs1_pin=26"
+    fi
+}
+
 case "$1" in
     configure)
         # Sanity check: config.txt must exist
@@ -79,7 +89,7 @@ case "$1" in
 
         # ----- Enable required firmware interfaces & overlays -----
         # Core interfaces
-        ensure_dtparam spi on
+        ensure_spi0_cs1_pin
         ensure_dtparam i2s on
         ensure_dtparam i2c_arm on
         ensure_dtparam_if_missing i2c_arm_baudrate 100000
