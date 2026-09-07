@@ -119,11 +119,15 @@ The package:
 - Configures required SPI, I2S, and I2C boot settings. SPI0 CS0 remains on
   BCM 8 for XMOS and CS1 is routed to BCM 26, leaving BCM 7 for the action
   button.
+- Enables the GPIO UART for an LD2410 mmWave presence sensor and removes the
+  serial console from `cmdline.txt` so nothing else holds the port. Onboard
+  Bluetooth is left enabled. See "mmWave Sensor UART".
 - Loads the `i2c-dev` kernel module and disables legacy analog audio to avoid
   card conflicts.
 
 The post-install script preserves existing boot configuration changes and
-creates a one-time `config.txt.satellite1.bak` backup.
+creates one-time `config.txt.satellite1.bak` and `cmdline.txt.satellite1.bak`
+backups.
 
 ## Verification
 
@@ -143,6 +147,39 @@ dtoverlay=spi0-2cs,cs1_pin=26
 ```
 
 `dtparam=spi=on` must not be active, because it assigns SPI0 CS1 to BCM 7.
+
+The sensor UART must exist and be unheld:
+
+```sh
+ls -l /dev/serial0
+sudo fuser -v /dev/serial0
+```
+
+`fuser` must report no holder. A `serial-getty` listed there means the console
+was not stripped from `cmdline.txt`.
+
+## mmWave Sensor UART
+
+`enable_uart=1` puts a UART on GPIO 14/15 for the LD2410. Which UART that is,
+and whether Bluetooth survives, depends on the overlay:
+
+| config.txt | GPIO 14/15 gets | Onboard Bluetooth | Use when |
+|---|---|---|---|
+| `enable_uart=1` (set by this package) | mini-UART, `/dev/ttyS0` | kept | LD2410 firmware shipped on the Satellite1 HAT (115200 baud) |
+| `+ dtoverlay=miniuart-bt` | PL011, `/dev/ttyAMA0` | kept, moved to mini-UART | sensor needs the PL011 and Bluetooth is wanted |
+| `+ dtoverlay=disable-bt` | PL011, `/dev/ttyAMA0` | disabled | sensor needs the PL011 and Bluetooth is not required |
+
+The default keeps Bluetooth because the mini-UART is sufficient at 115200.
+Measured on a Pi Zero 2 W with the HAT's LD2410: zero framing errors across
+sustained captures, idle and under full CPU load, with `core_freq` steady.
+
+Prefer the PL011 for sensors running the Hi-Link factory default of 256000
+baud. The mini-UART has a smaller FIFO and no fractional baud divisor, and at
+that rate it tends to drop frames rather than corrupt them: the data still
+parses cleanly, so check throughput and not just validity.
+
+Changing the overlay changes which tty `serial0` resolves to. Re-run the
+`fuser` check above afterwards.
 
 ## Uninstall
 
