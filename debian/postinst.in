@@ -15,6 +15,7 @@ else
 fi
 
 CFG="${BOOTDIR}/config.txt"
+CMDLINE="${BOOTDIR}/cmdline.txt"
 BOOT_OVL="${BOOTDIR}/overlays"
 
 echo "${PACKAGE_NAME}: Using BOOTDIR=${BOOTDIR}, CFG=${CFG}"
@@ -73,6 +74,40 @@ ensure_spi0_cs1_pin() {
     fi
 }
 
+# Ensure a bare "key=value" firmware setting exists; if present (even
+# commented), replace it with key=value.
+ensure_setting() {
+    key="$1"; val="$2"
+    if grep -Eq "^[#[:space:]]*${key}[[:space:]]*=" "$CFG"; then
+        sed -i -E "s|^[#[:space:]]*${key}[[:space:]]*=.*$|${key}=${val}|" "$CFG"
+    else
+        printf "%s=%s\n" "$key" "$val" >> "$CFG"
+    fi
+}
+
+# The LD2410 mmWave presence sensor needs a UART on GPIO 14/15. enable_uart=1
+# provides the mini-UART (/dev/ttyS0), which leaves onboard Bluetooth on the
+# PL011 and is sufficient for the LD2410 firmware shipped on the Satellite1 HAT
+# (115200 baud). Sensors running the Hi-Link factory default of 256000 baud
+# want the PL011 instead -- see README "mmWave Sensor UART".
+#
+# Raspberry Pi OS also ships console=serial0 on the kernel command line, so
+# systemd starts a getty on whichever tty serial0 resolves to, and that getty
+# holds the port. An application opening it then reads no data, which is
+# indistinguishable from a dead sensor or a wrong baud rate. Strip the serial
+# console entries; console=tty1 is left alone.
+ensure_sensor_uart() {
+    ensure_setting enable_uart 1
+
+    [ -f "$CMDLINE" ] || return 0
+    if [ ! -f "${CMDLINE}.satellite1.bak" ]; then
+        cp -p "$CMDLINE" "${CMDLINE}.satellite1.bak"
+        echo "${PACKAGE_NAME}: Backed up cmdline.txt to ${CMDLINE}.satellite1.bak"
+    fi
+    sed -i -E 's/(^| )console=(serial0|ttyAMA0|ttyS0),[0-9]+//g' "$CMDLINE"
+    sed -i -E 's/  +/ /g; s/^ //; s/ $//' "$CMDLINE"
+}
+
 case "$1" in
     configure)
         # Sanity check: config.txt must exist
@@ -107,6 +142,9 @@ case "$1" in
 
         # Optional sensor overlay
         ensure_aht20_overlay
+
+        # LD2410 mmWave presence sensor (UART)
+        ensure_sensor_uart
 
         # Auto load i2c-dev module
         echo i2c-dev | sudo tee /etc/modules-load.d/i2c.conf
