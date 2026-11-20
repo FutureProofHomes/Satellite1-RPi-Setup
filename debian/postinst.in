@@ -73,8 +73,34 @@ ensure_spi0_cs1_pin() {
     fi
 }
 
+# The Satellite1 needs the FUSB302 USB-C PD driver. Succeeds if the module is
+# built or available for at least one installed kernel, which is the one that
+# will boot after a reboot. The running kernel is not used, because it is the
+# kernel of the host when the package is installed in a chroot.
+kernel_has_fusb302() {
+    for dir in /lib/modules/*/; do
+        [ -d "$dir" ] || continue
+        if [ -n "$(find "$dir" -name 'fusb302.ko*' -print -quit 2>/dev/null)" ]; then
+            return 0
+        fi
+        if grep -qs 'fusb302\.ko' "${dir}modules.builtin"; then
+            return 0
+        fi
+    done
+    return 1
+}
+
 case "$1" in
     configure)
+        # Fail before anything is changed if the kernel cannot drive the Satellite1
+        if ! kernel_has_fusb302; then
+            echo "${PACKAGE_NAME}: ERROR: no installed kernel provides the FUSB302 driver (fusb302 module)." >&2
+            echo "${PACKAGE_NAME}: The stock Raspberry Pi OS kernel includes it from 6.18.42. Update the kernel with" >&2
+            echo "${PACKAGE_NAME}: 'sudo apt full-upgrade', or install a kernel with FUSB302 support, then run" >&2
+            echo "${PACKAGE_NAME}: 'sudo dpkg --configure -a'." >&2
+            exit 1
+        fi
+
         # Sanity check: config.txt must exist
         if [ ! -f "$CFG" ]; then
             echo "${PACKAGE_NAME}: config.txt not found at $CFG" >&2

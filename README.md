@@ -102,6 +102,10 @@ Download the setup package from its published GitHub Release and install it:
 sudo apt install ./satellite1-rpi-setup-trixie_<version>_arm64.deb
 ```
 
+The installation fails with an error message if none of the installed kernels
+provides the `fusb302` module. Update the kernel and run `sudo dpkg --configure -a`
+in that case.
+
 Reboot after installation to apply boot configuration changes.
 
 Systems that still run the custom kernel from
