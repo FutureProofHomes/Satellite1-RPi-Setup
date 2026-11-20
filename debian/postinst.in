@@ -140,6 +140,12 @@ case "$1" in
         # Avoid card conflicts with legacy analog audio
         sed -i -E 's/^[[:space:]]*dtparam=audio=on[[:space:]]*$/#dtparam=audio=on/' "$CFG" || true
 
+        # Let udev pick up the ACP profile set rule, a running WirePlumber reads it when it is restarted
+        if command -v udevadm >/dev/null 2>&1 && [ -d /run/udev ]; then
+            udevadm control --reload || true
+            udevadm trigger --subsystem-match=sound --action=change || true
+        fi
+
         echo "${PACKAGE_NAME}: overlays configured. Reboot to apply."
         ;;
 esac

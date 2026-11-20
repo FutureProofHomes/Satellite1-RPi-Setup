@@ -1,1 +1,3 @@
 etc/alsa/conf.d/50-satellite1.conf etc/alsa/conf.d/
+usr/share/alsa-card-profile/mixer/profile-sets/satellite1.conf usr/share/alsa-card-profile/mixer/profile-sets/
+usr/lib/udev/rules.d/90-satellite1-profile.rules usr/lib/udev/rules.d/

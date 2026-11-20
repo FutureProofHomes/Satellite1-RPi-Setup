@@ -106,6 +106,12 @@ The installation fails with an error message if none of the installed kernels
 provides the `fusb302` module. Update the kernel and run `sudo dpkg --configure -a`
 in that case.
 
+The package also installs an ACP profile set (`satellite1.conf`) and a udev rule
+that assigns it to the Satellite1 sound card. The card has playback on PCM device
+0 and capture on device 1, and the default profile set of PipeWire expects both
+on device 0, so without it PipeWire offers no microphone. Restart WirePlumber or
+reboot after installation to apply it.
+
 Reboot after installation to apply boot configuration changes.
 
 Systems that still run the custom kernel from
