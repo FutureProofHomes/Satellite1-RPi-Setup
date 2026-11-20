@@ -1,0 +1,2 @@
+# Playback is on PCM device 0 and capture on device 1 of the card, the default ACP profile set expects both on device 0.
+SUBSYSTEM=="sound", KERNEL=="card*", ATTR{id}=="Satellite1", ENV{ACP_PROFILE_SET}="satellite1.conf"

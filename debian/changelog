@@ -1,3 +1,11 @@
+satellite1-rpi-setup (1.5-1) trixie; urgency=medium
+
+  * Add an ACP profile set and a udev rule for the Satellite1 card. Playback
+    is on PCM device 0 and capture on device 1, the default profile set of
+    PipeWire expects both on device 0 and so finds no microphone.
+
+ -- Florian Asche <github@florian-asche.de>  Fri, 20 Nov 2026 19:30:00 +0000
+
 satellite1-rpi-setup (1.4-3) trixie; urgency=medium
 
   * Fail the installation with an error message if no installed kernel

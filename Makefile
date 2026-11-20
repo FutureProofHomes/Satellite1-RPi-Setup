@@ -138,6 +138,7 @@ $(DEBIAN_DIR):
 	cp -r "$(SRC_DEBIAN_DIR)" "$(BUILD_DIR)"
 	cp -r "dt-overlays" "$(BUILD_DIR)"
 	cp -r "etc" "$(BUILD_DIR)"
+	cp -r "usr" "$(BUILD_DIR)"
 
 # ---- Cleaning -------------------------------------------------------------
 
