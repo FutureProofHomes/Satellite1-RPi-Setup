@@ -14,7 +14,6 @@ Package: @PACKAGE_NAME@
 Architecture: @ARCH@
 Depends: 
   ${misc:Depends},
-  @KERNEL_PKG@,
   python3-venv, 
   python3-pip, 
   flashrom,
