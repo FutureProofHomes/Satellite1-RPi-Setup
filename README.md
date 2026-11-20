@@ -58,7 +58,7 @@ Examples:
 - `1.3-1`: first packaged release of feature set 1.3
 
 Increment the feature version for a material setup-package feature change.
-Increment the package revision for changes such as a kernel meta-package dependency,
+Increment the package revision for changes such as a dependency change,
 installation behavior, or package metadata.
 
 Local builds derive a version such as `1.2-2~local.<build-id>` in ignored build
@@ -83,7 +83,7 @@ Review and edit the draft release before publishing it.
 ## Public Release Checklist
 
 1. Update `debian/changelog` with the next public version and release notes.
-2. Set and verify the Raspberry Pi OS (Trixie) FUSB302 kernel meta-package dependency.
+2. Verify the package dependencies, which must not include a custom kernel package.
 3. Build and inspect the package from a clean tree.
 4. Commit and merge the release changes to `develop`.
 5. Run the **Prepare Trixie release** workflow from the current `develop` tip.
@@ -91,19 +91,23 @@ Review and edit the draft release before publishing it.
 
 ## Installation
 
-Download the setup package plus the matching kernel image and meta-package
-assets from their published GitHub Releases, then install them together:
+The FUSB302 USB-C PD driver is part of the Raspberry Pi kernel from `6.18.42`,
+so no custom kernel is required. Make sure the system runs the stock Raspberry
+Pi OS (Trixie) kernel at version `6.18.42` or newer (`uname -r`), updating it
+with `sudo apt full-upgrade` if necessary.
+
+Download the setup package from its published GitHub Release and install it:
 
 ```sh
-sudo apt install \
-  ./linux-image-<kernel-release>_<revision>_arm64.deb \
-  ./linux-image-fusb302-trixie-rpi-v8_<kernel-version>-<revision>_arm64.deb \
-  ./satellite1-rpi-setup-trixie_<version>_arm64.deb
+sudo apt install ./satellite1-rpi-setup-trixie_<version>_arm64.deb
 ```
 
-The setup package depends on the stable FUSB302 Trixie kernel meta package,
-which in turn depends on its matching kernel image. Reboot after installation
-to apply boot configuration changes.
+Reboot after installation to apply boot configuration changes.
+
+Systems that still run the custom kernel from
+[RPi-Kernel-Fusb302](https://github.com/FutureProofHomes/RPi-Kernel-Fusb302)
+keep working. Switch to the stock `linux-image-rpi-v8` package once it is
+available at `6.18.42` or newer.
 
 Installing this package with APT replaces the legacy
 `satellite1-rpi-setup` package automatically.

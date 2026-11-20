@@ -24,9 +24,6 @@ else
 $(error BUILD_KIND must be either "local" or "public")
 endif
 
-# Stable kernel meta package for this distribution.
-KERNEL_PKG         := linux-image-fusb302-$(DISTRIBUTION)-rpi-v8
-
 # Output dir for the built .deb (inside this package dir)
 OUT_DIR            ?= ${PWD}/out/$(BUILD_KIND)
 DEB_FILE           := $(OUT_DIR)/$(PACKAGE_NAME)_$(DEB_VERSION)_$(ARCH).deb
@@ -63,7 +60,7 @@ help:
 	@echo "  make image         Build the shared deb-builder Docker image"
 	@echo "  make clean         Remove build/ and out/ directories"
 	@echo "  make distclean     Alias for clean"
-	@echo "  make print-config  Show current kernel/package configuration"
+	@echo "  make print-config  Show current package configuration"
 
 print-config:
 	@echo "PACKAGE_NAME      = $(PACKAGE_NAME)"
@@ -73,7 +70,6 @@ print-config:
 	@echo "BUILD_KIND        = $(BUILD_KIND)"
 	@echo "PUBLIC_VERSION    = $(PUBLIC_VERSION)"
 	@echo "DEB_VERSION       = $(DEB_VERSION)"
-	@echo "KERNEL_PKG        = $(KERNEL_PKG)"
 	@echo "OUT_DIR           = $(OUT_DIR)"
 	@echo "BUILD_DIR         = $(BUILD_DIR)"
 	@echo "PKG_ROOT          = $(PKG_ROOT)"
@@ -124,7 +120,6 @@ $(DEBIAN_DIR)/control: $(SRC_CONTROL_IN) | $(DEBIAN_DIR)
 	  -e 's/@SOURCE_PACKAGE_NAME@/$(SOURCE_PACKAGE_NAME)/g' \
 	  -e 's/@PACKAGE_NAME@/$(PACKAGE_NAME)/g' \
 	  -e 's/@ARCH@/$(ARCH)/g' \
-	  -e 's/@KERNEL_PKG@/$(KERNEL_PKG)/g' \
 	  "$<" > "$@"
 
 # Copy postinst into the build tree and make it executable
